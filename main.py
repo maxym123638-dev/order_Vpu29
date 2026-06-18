@@ -283,16 +283,17 @@ def shopper_confirm_pay_kb(order_id: int) -> InlineKeyboardMarkup:
 
 def shopper_panel_kb() -> InlineKeyboardMarkup:
     today = get_today_orders()
-    # "Оплачені" = підтверджена картою АБО готівка
-    paid_orders = [o for o in today if o.get("payment_confirmed") or o.get("payment_method") == "cash"]
-    unconfirmed = [o for o in today if not o.get("payment_confirmed") and o.get("payment_method") == "card"]
     open_orders = [o for o in today if o.get("status") != "closed"]
+    # Оплачені = підтверджені (і картою, і готівкою)
+    paid_orders = [o for o in open_orders if o.get("payment_confirmed")]
+    unconfirmed = [o for o in open_orders if not o.get("payment_confirmed")]
+    
     lbl_close   = f"✅ Закрити список ({len(open_orders)})" if open_orders else "✅ Список порожній"
-    lbl_unconf  = f"💳 Непідтверджені оплати ({len(unconfirmed)})" if unconfirmed else "💳 Всі оплати підтверджені"
+    lbl_unconf  = f"⏳ Непідтверджені ({len(unconfirmed)})" if unconfirmed else "✅ Всі оплати підтверджені"
     lbl_shop    = f"🛍️ Список покупок ({len(paid_orders)} замовл.)" if paid_orders else "🛍️ Список покупок (порожній)"
     return InlineKeyboardMarkup([
         [InlineKeyboardButton(lbl_shop,   callback_data="shopper_shopping_list")],
-        [InlineKeyboardButton("📋 Всі замовлення сьогодні",  callback_data="shopper_orders")],
+        [InlineKeyboardButton("📋 Всі відкриті замовлення",  callback_data="shopper_orders")],
         [InlineKeyboardButton(lbl_unconf,                callback_data="shopper_unconfirmed")],
         [InlineKeyboardButton(lbl_close,                 callback_data="shopper_close_list")],
         [InlineKeyboardButton("🏠 Меню",                 callback_data="main_menu")],
@@ -493,15 +494,14 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if not (is_shopper(uid) or is_admin(uid)):
             await query.answer("⛔", show_alert=True); return
         today = get_today_orders()
-        # Оплачені = картою підтверджено АБО готівка
-        paid = [o for o in today
-                if o.get("payment_confirmed") or o.get("payment_method") == "cash"]
+        open_orders = [o for o in today if o.get("status") != "closed"]
+        # Оплачені = підтверджені (і картою, і готівкою)
+        paid = [o for o in open_orders if o.get("payment_confirmed")]
         if not paid:
             await query.edit_message_text(
                 "🛍️ <b>Список покупок порожній</b>\n\n"
                 "Немає оплачених замовлень.\n"
-                "<i>(Картові замовлення з'являються після підтвердження оплати,\n"
-                "готівкові — одразу після оформлення)</i>",
+                "<i>(Замовлення з'являються тут після підтвердження оплати)</i>",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="shopper_panel")]]),
                 parse_mode="HTML",
             )
@@ -549,24 +549,26 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
     elif data == "shopper_unconfirmed":
-        """Список замовлень де оплату ще не підтверджено (картою)."""
+        """Список замовлень де оплату ще не підтверджено."""
         if not (is_shopper(uid) or is_admin(uid)):
             await query.answer("⛔", show_alert=True); return
         today       = get_today_orders()
-        unconfirmed = [o for o in today if not o.get("payment_confirmed") and o.get("payment_method") == "card"]
+        open_orders = [o for o in today if o.get("status") != "closed"]
+        unconfirmed = [o for o in open_orders if not o.get("payment_confirmed")]
         if not unconfirmed:
             await query.edit_message_text(
-                "✅ <b>Всі картові оплати підтверджені!</b>",
+                "✅ <b>Всі оплати підтверджені!</b>",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Назад", callback_data="shopper_panel")]]),
                 parse_mode="HTML",
             )
             return
-        lines = [f"💳 <b>Очікують підтвердження оплати ({len(unconfirmed)}):</b>\n"]
+        lines = [f"⏳ <b>Очікують підтвердження ({len(unconfirmed)}):</b>\n"]
         btns  = []
         for o in unconfirmed:
-            lines.append(f"#{o['id']} {o['name']} | {o['total']:.0f} грн | {o['phone']}")
+            pay = "💵" if o.get("payment_method") == "cash" else "💳"
+            lines.append(f"#{o['id']} {o['name']} | {o['total']:.0f} грн {pay} | {o['phone']}")
             btns.append([InlineKeyboardButton(
-                f"✅ #{o['id']} — {o['name']} ({o['total']:.0f} грн) — ОПЛАТА ОТРИМАНА",
+                f"✅ #{o['id']} — {o['name']} ({o['total']:.0f} грн) — ПІДТВЕРДИТИ",
                 callback_data=f"shopper_pay_ok:{o['id']}"
             )])
         btns.append([InlineKeyboardButton("◀️ Назад", callback_data="shopper_panel")])
@@ -608,18 +610,20 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             except Exception: pass
         # Refresh unconfirmed list
         today       = get_today_orders()
-        unconfirmed = [o for o in today if not o.get("payment_confirmed") and o.get("payment_method") == "card"]
+        open_orders = [o for o in today if o.get("status") != "closed"]
+        unconfirmed = [o for o in open_orders if not o.get("payment_confirmed")]
         if not unconfirmed:
             await query.edit_message_text(
-                "✅ <b>Всі картові оплати підтверджені!</b>",
+                "✅ <b>Всі оплати підтверджені!</b>",
                 reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("◀️ Панель", callback_data="shopper_panel")]]),
                 parse_mode="HTML",
             )
         else:
-            lines = [f"💳 <b>Очікують підтвердження ({len(unconfirmed)}):</b>\n"]
+            lines = [f"⏳ <b>Очікують підтвердження ({len(unconfirmed)}):</b>\n"]
             btns  = []
             for o in unconfirmed:
-                lines.append(f"#{o['id']} {o['name']} | {o['total']:.0f} грн")
+                pay = "💵" if o.get("payment_method") == "cash" else "💳"
+                lines.append(f"#{o['id']} {o['name']} | {o['total']:.0f} грн {pay}")
                 btns.append([InlineKeyboardButton(
                     f"✅ #{o['id']} — {o['name']} ({o['total']:.0f} грн)",
                     callback_data=f"shopper_pay_ok:{o['id']}"
@@ -642,13 +646,17 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 else:
                     card_t += o["total"]
         save_orders(orders)
+        
+        set_today_shopper(None) # Remove today's shopper
+
         info  = get_shopper_info(uid) or {"name": "Покупець"}
         text  = (
-            f"✅ <b>Список закрито!</b>\n\n"
+            f"✅ <b>Список закрито і всі товари доставлено!</b>\n\n"
             f"📦 Закрито замовлень: <b>{closed_count}</b>\n"
             f"💵 Готівка: <b>{cash_t:.0f} грн</b>\n"
             f"💳 Картою: <b>{card_t:.0f} грн</b>\n"
-            f"💰 Разом: <b>{cash_t + card_t:.0f} грн</b>"
+            f"💰 Разом: <b>{cash_t + card_t:.0f} грн</b>\n\n"
+            f"ℹ️ Вас знято з посади покупця на сьогодні."
         )
         await query.edit_message_text(
             text,
@@ -777,6 +785,9 @@ async def handle_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif data == "checkout":
         if not cart:
             await query.answer("❌ Кошик порожній!", show_alert=True); return
+        if not get_today_shopper_id():
+            await query.answer("❌ Наразі немає покупця! Ви можете збирати кошик, але оформити замовлення можна пізніше.", show_alert=True)
+            return
         context.user_data["checkout_step"] = "name"
         await query.edit_message_text(
             "📝 <b>Оформлення</b>\n\nКрок 1/3: Введіть ваше <b>ім'я</b>:",
@@ -1154,24 +1165,24 @@ async def finalize_order(update: Update, context: ContextTypes.DEFAULT_TYPE):
         except Exception as e:
             logger.error(f"Admin notify failed: {e}")
 
-    # Notify today's shopper (with confirm button if card payment)
+    # Notify today's shopper (with confirm button)
     if today_shopper_id and today_shopper_id != ADMIN_ID:
         try:
-            kb = shopper_confirm_pay_kb(order_id) if payment_method == "card" else None
+            kb = shopper_confirm_pay_kb(order_id)
             await context.bot.send_message(
                 chat_id=today_shopper_id,
-                text=notify_text + ("\n\n💳 Підтвердіть отримання оплати:" if payment_method == "card" else ""),
+                text=notify_text + "\n\n⏳ Підтвердіть отримання оплати:",
                 reply_markup=kb,
                 parse_mode="HTML",
             )
         except Exception as e:
             logger.warning(f"Shopper notify failed: {e}")
-    elif ADMIN_ID and payment_method == "card":
+    elif ADMIN_ID:
         # If no separate shopper, admin confirms payment
         try:
             await context.bot.send_message(
                 chat_id=ADMIN_ID,
-                text="💳 Підтвердіть отримання оплати:",
+                text="⏳ Підтвердіть отримання оплати:",
                 reply_markup=shopper_confirm_pay_kb(order_id),
             )
         except Exception: pass
