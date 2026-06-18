@@ -1,0 +1,79 @@
+[
+  {
+    "id": "cola",
+    "name": "🥤 Кока-Кола 0.5л",
+    "unit": "шт",
+    "price": 35.00,
+    "category": "Напої"
+  },
+  {
+    "id": "sprite",
+    "name": "🟢 Спрайт 0.5л",
+    "unit": "шт",
+    "price": 37.00,
+    "category": "Напої"
+  },
+  {
+    "id": "morshynska",
+    "name": "💧 Моршинська 0.75л",
+    "unit": "шт",
+    "price": 30.00,
+    "category": "Напої"
+  },
+  {
+    "id": "baguette_ham_classic",
+    "name": "🥖 Багет з шинкою Classic",
+    "unit": "шт",
+    "price": 62.00,
+    "category": "Багети"
+  },
+  {
+    "id": "baguette_chicken_classic",
+    "name": "🥖 Багет з курячою шинкою Classic",
+    "unit": "шт",
+    "price": 62.00,
+    "category": "Багети"
+  },
+  {
+    "id": "baguette_ham_xlarge",
+    "name": "🥖 Багет з шинкою Classic XLarge",
+    "unit": "шт",
+    "price": 62.00,
+    "category": "Багети"
+  },
+  {
+    "id": "baguette_italian",
+    "name": "🇮🇹 Багет італійський",
+    "unit": "шт",
+    "price": 80.00,
+    "category": "Багети"
+  },
+  {
+    "id": "sandwich_tuna",
+    "name": "🐟 Сендвіч з тунцем",
+    "unit": "шт",
+    "price": 75.00,
+    "category": "Багети"
+  },
+  {
+    "id": "peanut_cheese",
+    "name": "🥜 Арахіс Big Bob з сиром 120г",
+    "unit": "шт",
+    "price": 62.00,
+    "category": "Горішки"
+  },
+  {
+    "id": "peanut_wasabi",
+    "name": "🌶️ Арахіс Big Bob васабі 55г",
+    "unit": "шт",
+    "price": 33.00,
+    "category": "Горішки"
+  },
+  {
+    "id": "axa_bar",
+    "name": "🍫 Батончик AXA",
+    "unit": "шт",
+    "price": 20.00,
+    "category": "Батончики"
+  }
+]
